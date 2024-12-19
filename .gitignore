@@ -1,0 +1,9 @@
+/target
+*.ll
+/*.c
+/*.h
+/*.o
+/*.exe
+/*.rs
+.vscode/
+*.lock

@@ -1,0 +1,12 @@
+[package]
+name = "mage"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1.0.89"
+clap = { version = "4.5.23", features = ["derive"] }
+lazy_static = "1.5.0"
+nom = "7.1.3"
