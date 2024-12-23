@@ -49,10 +49,6 @@ int64_t _deref(int64_t x) {
     return *(int64_t*)x;
 }
 
-int64_t _print(int64_t x) {
-    return x;
-}
-
 int64_t _debug(int64_t x) {
     printf("DEBUG: int=%lld, float=%f\n", x, as_float(x));
     return x;
@@ -67,8 +63,16 @@ int64_t _lt(int64_t x, int64_t y) {
     return x < y;
 }
 
+int64_t _le(int64_t x, int64_t y) {
+    return x <= y;
+}
+
 int64_t _gt(int64_t x, int64_t y) {
     return x > y;
+}
+
+int64_t _ge(int64_t x, int64_t y) {
+    return x >= y;
 }
 
 int64_t _eq(int64_t x, int64_t y) {
@@ -131,8 +135,27 @@ int64_t _rem(int64_t x, int64_t y) {
     return x % y;
 }
 
+int64_t _neg(int64_t x) {
+    return -x;
+}
+
 int64_t _put(int64_t x) {
     putchar(x);
+    return x;
+}
+
+int64_t _putc(int64_t x) {
+    putchar(x);
+    return x;
+}
+
+int64_t _puti(int64_t x) {
+    printf("%lld", x);
+    return x;
+}
+
+int64_t _putf(int64_t x) {
+    printf("%f", as_float(x));
     return x;
 }
 
@@ -143,4 +166,24 @@ int64_t _putnum(int64_t x) {
 
 int64_t _read() {
     return getchar();
+}
+
+int64_t _puts(int64_t ptr) {
+    printf("%s", (char*)ptr);
+    return 0;
+}
+
+int64_t _putsln(int64_t ptr) {
+    printf("%s\n", (char*)ptr);
+    return 0;
+}
+
+
+int64_t _srand(int64_t x) {
+    srand(x);
+    return 0;
+}
+
+int64_t _rand(int64_t lower, int64_t upper) {
+    return (rand() % (upper - lower + 1)) + lower;
 }

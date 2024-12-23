@@ -1,7 +1,7 @@
 use std::{
     collections::{BTreeMap, HashMap}, sync::{Arc, RwLock}
 };
-use crate::{Expr, Stmt};
+use super::{Expr, Stmt};
 use anyhow::{Context, Result};
 use super::Symbol;
 
@@ -190,6 +190,19 @@ impl<T: Interface> Interpreter<T> {
                     self.eval_expr(then_expr)?
                 } else {
                     self.eval_expr(else_expr)?
+                }
+            }
+            Expr::Array(values) => {
+                let mut result = Vec::new();
+                for value in values {
+                    // Evaluate the value
+                    result.push(self.eval_expr(value)?);
+                }
+
+                // Now, return a pointer to the array
+                unsafe {
+                    let ptr = Box::into_raw(result.into_boxed_slice()) as *mut i64;
+                    ptr as i64
                 }
             }
         })

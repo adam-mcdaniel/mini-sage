@@ -15,7 +15,7 @@ use nom::{
     combinator::value,
     error::{convert_error, ErrorKind, FromExternalError, VerboseError},
 };
-use crate::*;
+use super::*;
 
 const KEYWORDS: &[&str] = &[
     "def", "fun", "struct", "enum", "mut", "let", "if", "else", "while", "for", "return", "match",
@@ -352,7 +352,7 @@ fn parse_string_literal<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
 fn parse_bool<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
     input: &'a str,
 ) -> IResult<&'a str, bool, E> {
-    let (input, result) = alt((value(true, tag("True")), value(false, tag("False"))))(input)?;
+    let (input, result) = alt((value(true, tag("true")), value(false, tag("false"))))(input)?;
 
     // Peek and make sure the next character is not a symbol character
     if let Some(c) = input.chars().next() {
@@ -390,16 +390,50 @@ fn parse_expr<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
     let (input, _) = whitespace(input)?;
     Ok((input, result))
 }
+
+fn parse_array<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
+    input: &'a str,
+) -> IResult<&'a str, Expr, E> {
+    let (input, _) = whitespace(input)?;
+    let (input, _) = tag("[")(input)?;
+    let (input, _) = whitespace(input)?;
+    let (input, mut elems) = cut(many0(terminated(parse_expr, delimited(whitespace, char(','), whitespace))))(input)?;
+    // Check if there is a trailing comma
+    let (input, last) = opt(preceded(whitespace, parse_expr))(input)?;
+    if let Some(last) = last {
+        elems.push(last);
+    }
+    let (input, _) = whitespace(input)?;
+    let (input, _) = tag("]")(input)?;
+    Ok((input, Expr::Array(elems)))
+}
+
 fn parse_expr_atom<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
     input: &'a str,
 ) -> IResult<&'a str, Expr, E> {
     let (input, _) = whitespace(input)?;
     let (input, result) = alt((
-        map(parse_symbol, |s| Expr::Var(s.into())),
         map(parse_float_literal, Expr::Float),
         map(parse_int_literal, Expr::Int),
         map(parse_char_literal, Expr::Char),
         map(parse_bool, Expr::Bool),
+        map(parse_symbol, |s| Expr::Var(s.into())),
+        parse_array,
+        map(parse_string_literal, |s| {
+            // Convert the string to a vector of bytes
+            let bytes = s.as_bytes().to_vec();
+            // Now concat the bytes into i64s (8 bytes at a time)
+            let mut result = Vec::new();
+            for chunk in bytes.chunks(8) {
+                let mut bytes = [0; 8];
+                for (i, &byte) in chunk.iter().enumerate() {
+                    bytes[i] = byte;
+                }
+                result.push(i64::from_ne_bytes(bytes));
+            }
+            result.push(0);
+            Expr::Array(result.into_iter().map(Expr::Int).collect())
+        }),
         delimited(
             char('('),
             preceded(whitespace, parse_expr),
@@ -487,7 +521,11 @@ fn parse_if_stmt<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
     let (input, _) = whitespace(input)?;
     let (input, then_block) = cut(parse_block)(input)?;
     let (input, _) = whitespace(input)?;
-    let (input, _) = cut(tag("else"))(input)?;
+    let (input, has_else) = opt(tag("else"))(input)?;
+    if has_else.is_none() {
+        return Ok((input, if_(cond, Stmt::Block(then_block), Stmt::Block(vec![]))));
+    }
+
     let (input, _) = whitespace(input)?;
 
     let (input, else_block) = cut(alt((

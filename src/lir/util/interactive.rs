@@ -3,7 +3,7 @@ use std::{
     collections::VecDeque, fmt::{Display, Formatter},
     io::{Read, Write}
 };
-use crate::{Interface, Symbol};
+use crate::lir::{Interface, Symbol};
 use anyhow::Result;
 
 #[derive(Default)]
@@ -38,6 +38,7 @@ impl Interface for InteractiveInterface {
             | "floor"
             | "ceil"
             | "deref"
+            | "idx"
             | "malloc"
             | "free" => true,
 
@@ -63,12 +64,19 @@ impl Interface for InteractiveInterface {
                 }
                 0
             },
+            "idx" => {
+                let ptr = args[0] as *const i64;
+                let idx = args[1] as usize;
+                unsafe {
+                    *ptr.add(idx)
+                }
+            },
             "malloc" => {
                 let size = args[0] as usize;
                 // Call malloc
-                let ptr = Box::into_raw(vec![0; size].into_boxed_slice());
+                let ptr = Box::into_raw(vec![0 as i64; size].into_boxed_slice());
                 unsafe {
-                    ptr as i64
+                    ptr as *const i64 as i64
                 }
             },
             "free" => {

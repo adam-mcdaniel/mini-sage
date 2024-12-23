@@ -1,5 +1,5 @@
 use anyhow::Result;
-use crate::{Env, Expr, Stmt, Symbol};
+use super::{Env, Expr, Stmt, Symbol};
 
 mod llvm;
 pub use llvm::*;
@@ -10,7 +10,6 @@ pub use c::*;
 fn wrap_symbol_name(name: &Symbol) -> String {
     format!("_{}", name)
 }
-
 
 pub(super) fn lift_global_decls(stmts: Vec<Stmt>) -> (Vec<Stmt>, Vec<Stmt>) {
     let mut new_stmts: Vec<Stmt> = Vec::new();
@@ -69,13 +68,18 @@ pub trait CompileTarget {
             Expr::Int(value) => Ok(format!("{value:?}")),
             Expr::Char(value) => Ok(format!("{value:?}")),
             Expr::Float(value) => Ok(format!("mage_as_int({value:?})")),
-            Expr::Bool(value) => Ok(if *value { "true" } else { "false" }.to_string()),
+            Expr::Bool(value) => Ok(if *value { "1" } else { "0" }.to_string()),
             Expr::Var(name) => Ok(wrap_symbol_name(name)),
             Expr::Ref(name) => Ok(format!("((int64_t)&{})", wrap_symbol_name(name))),
             Expr::App(func, args) => {
                 let func = self.compile_expr(func, env)?;
                 let args = args.iter().map(|arg| self.compile_expr(arg, env)).collect::<Result<Vec<_>>>()?;
                 Ok(format!("{}({})", func, args.join(", ")))
+            },
+            Expr::Array(values) => {
+                let values = values.iter().map(|value| self.compile_expr(value, env)).collect::<Result<Vec<_>>>()?;
+                // Allocate on the stack
+                Ok(format!("(int64_t)(int64_t*)(int64_t[]){{ {} }}", values.join(", ")))
             }
         }
     }
@@ -107,7 +111,7 @@ pub trait CompileTarget {
                 let new_env = env.new_scope();
                 let args = args.iter().map(|arg| format!("int64_t {}", wrap_symbol_name(arg))).collect::<Vec<_>>().join(", ");
                 let body = self.compile_stmt(body, &new_env)?;
-                Ok(format!("int64_t {}({}) {{\n{}\n}}", name, args, body))
+                Ok(format!("int64_t {}({}) {{\n{}\nreturn 0;\n}}", name, args, body))
             }
             Stmt::ExternProc { name, args, body } => {
                 if self.has_extern(name.as_ref()) {

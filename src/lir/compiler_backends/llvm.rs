@@ -1,6 +1,6 @@
 use anyhow::{Result, Context};
 use std::collections::{HashMap, HashSet};
-use crate::{Env, Expr, Stmt, Symbol, CompileTarget};
+use super::{Env, Expr, Stmt, Symbol, CompileTarget};
 use super::lift_global_decls;
 
 fn wrap_symbol_name(name: &Symbol) -> String {
@@ -169,6 +169,14 @@ impl CompileTarget for LLVMCompiler {
 
         let mut code = String::new();
         code.push_str("; ModuleID = 'mage_output'\n");
+        #[cfg(target_os = "macos")]
+        code.push_str("target triple = \"arm64-apple-macosx14.0.0\"\n\n");
+        #[cfg(target_os = "linux")]
+        code.push_str("target triple = \"x86_64-unknown-linux-gnu\"\n\n");
+        #[cfg(target_os = "windows")]
+        code.push_str("target triple = \"x86_64-pc-windows-msvc\"\n\n");
+
+
 
         // External function declarations
         for p in &procs {
@@ -273,6 +281,49 @@ impl CompileTarget for LLVMCompiler {
                 let arg_list = arg_vals.iter().map(|v| format!("i64 {}", v)).collect::<Vec<_>>().join(", ");
                 self.emit(&format!("  {result_reg} = call i64 {func_val}({arg_list})"));
                 Ok(result_reg)
+            },
+            Expr::Array(values) => {
+                let num_elems = values.len();
+                
+                // First, compile each array element to a register:
+                let compiled_values = values
+                    .iter()
+                    .map(|val| self.compile_expr(val, env))
+                    .collect::<Result<Vec<_>>>()?;
+            
+                // 1) Allocate space on the stack: [N x i64]
+                let arr_alloca = self.fresh_reg();
+                self.emit(&format!("  {arr_alloca} = alloca [{} x i64]", num_elems));
+            
+                // 2) Store each element at the correct index
+                for (i, val_reg) in compiled_values.iter().enumerate() {
+                    let element_ptr = self.fresh_reg();
+            
+                    // Get pointer to arr_alloca[0][i]
+                    self.emit(&format!(
+                        "  {element_ptr} = getelementptr inbounds [{} x i64], [{} x i64]* {arr_alloca}, i64 0, i64 {}",
+                        num_elems,
+                        num_elems,
+                        i
+                    ));
+            
+                    self.emit(&format!("  store i64 {val_reg}, i64* {element_ptr}"));
+                }
+            
+                // 3) Get pointer to the first element 
+                let arr_ptr = self.fresh_reg();
+                self.emit(&format!(
+                    "  {arr_ptr} = getelementptr inbounds [{} x i64], [{} x i64]* {arr_alloca}, i64 0, i64 0",
+                    num_elems,
+                    num_elems
+                ));
+            
+                // 4) Turn that pointer into an i64 (so our IR sees it as a regular integer)
+                let arr_ptr_int = self.fresh_reg();
+                self.emit(&format!("  {arr_ptr_int} = ptrtoint i64* {arr_ptr} to i64"));
+            
+                // Return that pointer-as-integer
+                Ok(arr_ptr_int)
             }
         }
     }

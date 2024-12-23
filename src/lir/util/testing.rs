@@ -2,7 +2,7 @@
 use std::{
     collections::VecDeque, fmt::{Display, Formatter}
 };
-use crate::{Interface, Symbol};
+use crate::lir::{Interface, Symbol};
 use anyhow::Result;
 
 #[derive(Debug, Default)]

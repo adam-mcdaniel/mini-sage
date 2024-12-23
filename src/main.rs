@@ -1,9 +1,11 @@
 use anyhow::{Context, Result};
-use mage::*;
+use mage::lir::*;
 use std::{
     collections::VecDeque, io::{Read, Write}, fmt::{Display, Formatter}, fs::File
 };
 
+use tracing::{info, Level};
+use tracing_subscriber::FmtSubscriber;
 
 // Use clap to parse command line arguments
 use clap::{Parser, ValueEnum};
@@ -33,16 +35,38 @@ struct Args {
     /// The backend to use
     #[arg(short, value_enum)]
     target: Option<Backend>,
+
+    /// Include debug information
+    #[arg(short, long)]
+    debug: bool,
+
+    /// Compile with release optimizations
+    #[arg(long)]
+    release: bool,
+
+    /// Compile with address sanitizer
+    #[arg(long)]
+    asan: bool,
 }
 
-fn main() -> Result<()>{
+fn main() -> Result<()> {
+    // a builder for `FmtSubscriber`.
+    let subscriber = FmtSubscriber::builder()
+        // all spans/events with a level higher than TRACE (e.g, debug, info, warn, etc.)
+        // will be written to stdout.
+        .with_max_level(Level::TRACE)
+        // completes the builder.
+        .finish();
+    tracing::subscriber::set_global_default(subscriber)
+        .expect("setting default subscriber failed");
+
     let args = Args::parse();
     let input = std::fs::read_to_string(&args.input_file).context("Failed to read input file")?;
     let program = parse(&input).context("Failed to parse input file")?;
 
     let output = match args.target.unwrap_or(Backend::Interpreter) {
         Backend::C => {
-            let mut c = C::new();
+            let mut c = CCompiler::new();
             c.compile(program)?
         }
         Backend::LLVM => {
@@ -79,6 +103,18 @@ fn main() -> Result<()>{
     } else {
         cmd
             .arg(&path);
+    }
+    if args.debug {
+        cmd.arg("-g");
+        info!("Compiling with debug information");
+    }
+    if args.release {
+        cmd.arg("-O3");
+        info!("Compiling with release optimizations");
+    }
+    if args.asan {
+        cmd.arg("-fsanitize=address");
+        info!("Compiling with address sanitizer");
     }
     let status = cmd.arg("-o")
         .arg(path.with_extension("exe"))
