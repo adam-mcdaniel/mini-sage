@@ -11,12 +11,9 @@ extern fun div(x, y);
 extern fun lt(x, y);
 extern fun eq(x, y);
 
-extern fun put(ch);
-extern fun putnum(n);
-extern fun fprint(ch);
-fun newline() {
-    put('\n');
-}
+extern fun putc(ch);
+extern fun puti(n);
+extern fun putf(ch);
 
 extern fun to_float(n);
 extern fun to_int(n);
@@ -29,6 +26,10 @@ extern fun deref(ptr);
 let static MAX_ITER = 1000;
 let static WIDTH = 1600;
 let static HEIGHT = 480;
+
+fun newline() {
+    putc('\n');
+}
 
 fun hsv_to_rgb(h, s, v) {
     let r = h;
@@ -67,20 +68,20 @@ fun print_colored_char(ch, hue, saturation, value) {
     let g = floor(saturation);
     let b = floor(value);
 
-    put(27);
-    put('[');
-    put('3');
-    put('8');
-    put(';');
-    put('2');
-    put(';');
-    putnum(to_int(r));
-    put(';');
-    putnum(to_int(g));
-    put(';');
-    putnum(to_int(b));
-    put('m');
-    put(ch);
+    putc(27);
+    putc('[');
+    putc('3');
+    putc('8');
+    putc(';');
+    putc('2');
+    putc(';');
+    puti(to_int(r));
+    putc(';');
+    puti(to_int(g));
+    putc(';');
+    puti(to_int(b));
+    putc('m');
+    putc(ch);
 }
 
 fun print_mandelbrot_iter(iter) {

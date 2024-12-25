@@ -14,11 +14,11 @@ extern fun eq(x, y);
 extern fun puts(s);
 extern fun putsln(s);
 
-extern fun put(ch);
-extern fun putnum(n);
-extern fun fprint(ch);
+extern fun putc(ch);
+extern fun puti(n);
+
 fun newline() {
-    put('\n');
+    putc('\n');
     return 0;
 }
 
@@ -71,20 +71,20 @@ fun print_colored_char(ch, hue, saturation, value) {
     let g = floor(saturation);
     let b = floor(value);
 
-    put(27);
-    put('[');
-    put('3');
-    put('8');
-    put(';');
-    put('2');
-    put(';');
-    putnum(to_int(r));
-    put(';');
-    putnum(to_int(g));
-    put(';');
-    putnum(to_int(b));
-    put('m');
-    put(ch);
+    putc(27);
+    putc('[');
+    putc('3');
+    putc('8');
+    putc(';');
+    putc('2');
+    putc(';');
+    puti(to_int(r));
+    putc(';');
+    puti(to_int(g));
+    putc(';');
+    puti(to_int(b));
+    putc('m');
+    putc(ch);
 }
 
 fun print_mandelbrot_iter(iter) {

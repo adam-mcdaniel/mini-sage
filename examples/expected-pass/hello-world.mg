@@ -1,8 +1,9 @@
 extern fun malloc(n);
 extern fun idx(ptr, i);
 extern fun eq(x, y);
-extern fun put(x);
-extern fun putnum(x);
+extern fun putc(x);
+extern fun putp(x);
+extern fun puti(x);
 extern fun deref(x);
 extern fun add(x, y);
 extern fun sub(x, y);
@@ -11,7 +12,7 @@ extern fun neg(x) {
 }
 
 fun newline() {
-    put('\n');
+    putc('\n');
 }
 
 fun inc(x) {
@@ -44,7 +45,7 @@ fun not(x) {
 fun print(s) {
     let i = 0;
     while (not(eq(deref(idx(s, i)), 0))) {
-        put(deref(idx(s, i)));
+        putc(deref(idx(s, i)));
         i = add(i, 1);
     }
 }

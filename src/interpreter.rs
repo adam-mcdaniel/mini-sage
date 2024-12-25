@@ -37,6 +37,11 @@ impl<T: Interface> Interpreter<T> {
         }
     }
 
+    pub fn partial_run(&mut self, program: &Stmt) -> Result<()> {
+        self.eval_stmt(program)?;
+        Ok(())
+    }
+
     pub fn run(mut self, program: &Stmt) -> Result<T> {
         self.eval_stmt(program)?;
         Ok(self.interface)
@@ -122,7 +127,7 @@ impl<T: Interface> Interpreter<T> {
                     self.env[name]
                 } else if self.static_vars.read().unwrap().contains_key(name) {
                     *self.static_vars.read().unwrap().get(name).unwrap()
-                } else if let Some((arg_names, _)) = self.procs.get(name) {
+                } else if let Some((_arg_names, _)) = self.procs.get(name) {
                     self.procs.keys().position(|key| key == name).unwrap() as i64
                 } else {
                     anyhow::bail!("Unknown variable: {:?}", name);
@@ -200,10 +205,8 @@ impl<T: Interface> Interpreter<T> {
                 }
 
                 // Now, return a pointer to the array
-                unsafe {
-                    let ptr = Box::into_raw(result.into_boxed_slice()) as *mut i64;
-                    ptr as i64
-                }
+                let ptr = Box::into_raw(result.into_boxed_slice()) as *mut i64;
+                ptr as i64
             }
         })
     }
@@ -212,15 +215,15 @@ impl<T: Interface> Interpreter<T> {
         if self.loop_broken || self.loop_continued || self.returned {
             return Ok(());
         }
-        Ok(match stmt {
+        match stmt {
             Stmt::Annotated(metadata, stmt) => {
                 self.eval_stmt(stmt).context(format!("At {metadata}"))?
             }
             Stmt::Expr(expr) => {
-                self.return_value = self.eval_expr(&expr)?;
+                self.return_value = self.eval_expr(expr)?;
             }
             Stmt::Return(expr) => {
-                self.return_value = self.eval_expr(&expr)?;
+                self.return_value = self.eval_expr(expr)?;
                 self.returned = true;
             }
             Stmt::Continue => {
@@ -230,7 +233,7 @@ impl<T: Interface> Interpreter<T> {
                 self.loop_broken = true;
             }
             Stmt::DeclareVar { name, is_static, value } => {
-                let result = self.eval_expr(&value)?;
+                let result = self.eval_expr(value)?;
                 if *is_static {
                     self.declare_static_var(name.clone(), result);
                 } else {
@@ -244,24 +247,24 @@ impl<T: Interface> Interpreter<T> {
                 self.add_external_proc(name.clone(), args.clone(), body.clone());
             }
             Stmt::AssignVar(name, value) => {
-                let result = self.eval_expr(&value)?;
+                let result = self.eval_expr(value)?;
                 self.env.insert(name.clone(), result);
             }
 
             Stmt::AssignRef(reference, value) => {
                 // Evaluate the reference to get the index of the variable
                 unsafe {
-                    let reference = self.eval_expr(&reference)? as *const i64 as *mut i64;
+                    let reference = self.eval_expr(reference)? as *const i64 as *mut i64;
                     // Assign the value to the variable
-                    let result = self.eval_expr(&value)?;
+                    let result = self.eval_expr(value)?;
 
                     *reference = result;
                 }
             }
 
             Stmt::While(condition, body) => {
-                while self.eval_expr(&condition)? != 0 {
-                    self.eval_stmt(&body)?;
+                while self.eval_expr(condition)? != 0 {
+                    self.eval_stmt(body)?;
                     if self.loop_broken || self.returned {
                         self.loop_broken = false;
                         break;
@@ -273,10 +276,10 @@ impl<T: Interface> Interpreter<T> {
                 }
             }
             Stmt::If(condition, then_body, else_body) => {
-                if self.eval_expr(&condition)? != 0 {
-                    self.eval_stmt(&then_body)?;
+                if self.eval_expr(condition)? != 0 {
+                    self.eval_stmt(then_body)?;
                 } else {
-                    self.eval_stmt(&else_body)?;
+                    self.eval_stmt(else_body)?;
                 }
             }
             Stmt::Block(stmts) => {
@@ -287,6 +290,7 @@ impl<T: Interface> Interpreter<T> {
                     }
                 }
             }
-        })
+        }
+        Ok(())
     }
 }

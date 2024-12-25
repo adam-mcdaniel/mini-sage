@@ -17,7 +17,7 @@ fn bench_mg_with_llvm(path: &Path, compile: bool, run: bool) -> Result<()> {
         let program = parse(&code)?;
     
         // 3) Compile to LLVM IR
-        let llvm_ir = LLVMCompiler::new().compile(program)?;  
+        let llvm_ir = LLVMCompiler::default().compile(program)?;  
         // NOTE: you might have your own `LLVMBackend::new()`, etc. 
         // The key is that we now produce IR as a string.
     

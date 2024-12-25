@@ -7,6 +7,7 @@ fn wrap_symbol_name(name: &Symbol) -> String {
     format!("_{}", name)
 }
 
+#[derive(Default)]
 pub struct LLVMCompiler {
     current_function_code: Vec<String>,
     global_declarations: Vec<String>,
@@ -19,19 +20,6 @@ pub struct LLVMCompiler {
 }
 
 impl LLVMCompiler {
-    pub fn new() -> Self {
-        LLVMCompiler {
-            current_function_code: Vec::new(),
-            global_declarations: Vec::new(),
-            loop_stack: Vec::new(),
-            reg_counter: 0,
-            label_counter: 0,
-            local_vars: vec![],
-            known_functions: HashSet::new(),
-            known_globals: HashMap::new(),
-        }
-    }
-
     fn fresh_reg(&mut self) -> String {
         let r = format!("%r{}", self.reg_counter);
         self.reg_counter += 1;
@@ -144,20 +132,20 @@ impl CompileTarget for LLVMCompiler {
         for p in &procs {
             match p.strip_annotations() {
                 Stmt::DeclareProc { name, .. } => {
-                    let fn_name = wrap_symbol_name(&name);
+                    let fn_name = wrap_symbol_name(name);
                     self.known_functions.insert(fn_name);
                 }
                 Stmt::ExternProc { name, .. } => {
-                    let fn_name = wrap_symbol_name(&name);
+                    let fn_name = wrap_symbol_name(name);
                     self.known_functions.insert(fn_name);
                 }
                 Stmt::DeclareVar { name, is_static: true, value } => {
-                    let global_name = wrap_symbol_name(&name);
+                    let global_name = wrap_symbol_name(name);
                     self.known_globals.insert(global_name.clone(), global_name.clone());
                     let initial_val = match *value.clone() {
                         Expr::Int(v) => v.to_string(),
                         Expr::Char(c) => (c as i64).to_string(),
-                        Expr::Float(f) => (f64::to_bits(f) as u64 as i64).to_string(),
+                        Expr::Float(f) => (f64::to_bits(f) as i64).to_string(),
                         Expr::Bool(b) => self.bool_to_int(b).to_string(),
                         _ => "0".to_string() // fallback for non-constant initializers
                     };
@@ -181,7 +169,7 @@ impl CompileTarget for LLVMCompiler {
         // External function declarations
         for p in &procs {
             if let Stmt::ExternProc { name, args, .. } = p.strip_annotations() {
-                let fn_name = wrap_symbol_name(&name);
+                let fn_name = wrap_symbol_name(name);
                 let arg_types = args.iter().map(|_| "i64").collect::<Vec<_>>().join(", ");
                 code.push_str(&format!("declare i64 @{fn_name}({arg_types})\n"));
             }
@@ -192,14 +180,14 @@ impl CompileTarget for LLVMCompiler {
             code.push_str(&format!("{}\n", gdecl));
         }
 
-        code.push_str("\n");
+        code.push('\n');
 
         // Define user-defined procedures
         for p in &procs {
             if let Stmt::DeclareProc { name, args, body } = p.strip_annotations() {
-                let fn_name = wrap_symbol_name(&name);
-                self.begin_function(&fn_name, &args);
-                self.compile_stmt(&body, &Env::new())?;
+                let fn_name = wrap_symbol_name(name);
+                self.begin_function(&fn_name, args);
+                self.compile_stmt(body, &Env::default())?;
                 // If no explicit return, return 0
                 self.emit("  ret i64 0");
                 let fn_def = self.end_function();
@@ -210,21 +198,21 @@ impl CompileTarget for LLVMCompiler {
 
         // Main function
         self.begin_function("main", &[]);
-        self.compile_stmt(&Stmt::Block(stmts), &Env::new())?;
+        self.compile_stmt(&Stmt::Block(stmts), &Env::default())?;
         self.emit("  ret i64 0");
         let main_def = self.end_function();
         code.push_str(&main_def);
-        code.push_str("\n");
+        code.push('\n');
 
         Ok(code)
     }
 
-    fn compile_expr(&mut self, expr: &Expr, env: &Env) -> Result<String> {
+    fn compile_expr(&mut self, expr: &Expr, _env: &Env) -> Result<String> {
         match expr {
-            Expr::Annotated(metadata, inner) => self.compile_expr(inner, env)
+            Expr::Annotated(metadata, inner) => self.compile_expr(inner, _env)
                 .context(format!("Failed to compile annotated expression: {}", metadata)),
             Expr::If(cond, then, else_) => {
-                let cond_val = self.compile_expr(cond, env)?;
+                let cond_val = self.compile_expr(cond, _env)?;
                 let then_label = self.fresh_label("then");
                 let else_label = self.fresh_label("else");
                 let end_label = self.fresh_label("endif");
@@ -238,12 +226,12 @@ impl CompileTarget for LLVMCompiler {
                 self.emit(&format!("  br i1 {cond_cmp}, label %{then_label}, label %{else_label}"));
 
                 self.emit(&format!("{then_label}:"));
-                let then_val = self.compile_expr(then, env)?;
+                let then_val = self.compile_expr(then, _env)?;
                 self.emit(&format!("  store i64 {then_val}, i64* {result_alloca}"));
                 self.emit(&format!("  br label %{end_label}"));
 
                 self.emit(&format!("{else_label}:"));
-                let else_val = self.compile_expr(else_, env)?;
+                let else_val = self.compile_expr(else_, _env)?;
                 self.emit(&format!("  store i64 {else_val}, i64* {result_alloca}"));
                 self.emit(&format!("  br label %{end_label}"));
 
@@ -253,7 +241,7 @@ impl CompileTarget for LLVMCompiler {
             }
             Expr::Int(value) => Ok(value.to_string()),
             Expr::Char(value) => Ok((*value as i64).to_string()),
-            Expr::Float(value) => Ok((f64::to_bits(*value) as u64 as i64).to_string()),
+            Expr::Float(value) => Ok((f64::to_bits(*value) as i64).to_string()),
             Expr::Bool(value) => Ok(self.bool_to_int(*value).to_string()),
             Expr::Var(name) => {
                 let var_name = wrap_symbol_name(name);
@@ -275,8 +263,8 @@ impl CompileTarget for LLVMCompiler {
                 }
             }
             Expr::App(func, args) => {
-                let func_val = self.compile_expr(func, env)?;
-                let arg_vals = args.iter().map(|a| self.compile_expr(a, env)).collect::<Result<Vec<_>>>()?;
+                let func_val = self.compile_expr(func, _env)?;
+                let arg_vals = args.iter().map(|a| self.compile_expr(a, _env)).collect::<Result<Vec<_>>>()?;
                 let result_reg = self.fresh_reg();
                 let arg_list = arg_vals.iter().map(|v| format!("i64 {}", v)).collect::<Vec<_>>().join(", ");
                 self.emit(&format!("  {result_reg} = call i64 {func_val}({arg_list})"));
@@ -288,7 +276,7 @@ impl CompileTarget for LLVMCompiler {
                 // First, compile each array element to a register:
                 let compiled_values = values
                     .iter()
-                    .map(|val| self.compile_expr(val, env))
+                    .map(|val| self.compile_expr(val, _env))
                     .collect::<Result<Vec<_>>>()?;
             
                 // 1) Allocate space on the stack: [N x i64]
@@ -328,19 +316,19 @@ impl CompileTarget for LLVMCompiler {
         }
     }
 
-    fn compile_stmt(&mut self, stmt: &Stmt, env: &Env) -> Result<String> {
+    fn compile_stmt(&mut self, stmt: &Stmt, _env: &Env) -> Result<String> {
         match stmt {
             Stmt::Annotated(metadata, stmt) => {
-                let stmt = self.compile_stmt(stmt, env)
+                let stmt = self.compile_stmt(stmt, _env)
                     .context(format!("Failed to compile annotated statement: {}", metadata))?;
                 Ok(format!("/* {} */\n{}", metadata, stmt))
             }
             Stmt::Expr(expr) => {
-                let _ = self.compile_expr(expr, env)?;
+                let _ = self.compile_expr(expr, _env)?;
                 Ok("".to_string())
             }
             Stmt::Return(value) => {
-                let val = self.compile_expr(value, env)?;
+                let val = self.compile_expr(value, _env)?;
                 self.emit(&format!("  ret i64 {val}"));
                 Ok("".to_string())
             }
@@ -362,13 +350,13 @@ impl CompileTarget for LLVMCompiler {
             }
             Stmt::DeclareVar { name, is_static, value } => {
                 if *is_static {
-                    let global_name = wrap_symbol_name(&name);
+                    let global_name = wrap_symbol_name(name);
                     // Attempt to get a compile-time constant initial value
                     // For simplicity, handle known constant types:
                     let initial_val = match *value.clone() {
                         Expr::Int(v) => v.to_string(),
                         Expr::Char(c) => (c as i64).to_string(),
-                        Expr::Float(f) => (f64::to_bits(f) as u64 as i64).to_string(),
+                        Expr::Float(f) => (f64::to_bits(f) as i64).to_string(),
                         Expr::Bool(b) => self.bool_to_int(b).to_string(),
                         _ => "0".to_string() // fallback for non-constant initializers
                     };
@@ -377,7 +365,7 @@ impl CompileTarget for LLVMCompiler {
                     self.global_declarations.push(format!("@{} = global i64 {}", global_name, initial_val));
                     Ok("".to_string())
                 } else {
-                    let val = self.compile_expr(value, env)?;
+                    let val = self.compile_expr(value, _env)?;
                     let var_name = wrap_symbol_name(name);
                     let alloca_reg = self.fresh_reg();
                     self.emit(&format!("  {alloca_reg} = alloca i64"));
@@ -395,14 +383,14 @@ impl CompileTarget for LLVMCompiler {
                 Ok("".to_string())
             }
             Stmt::AssignVar(name, value) => {
-                let val = self.compile_expr(value, env)?;
+                let val = self.compile_expr(value, _env)?;
                 let var_name = wrap_symbol_name(name);
                 self.store_var(&var_name, &val)?;
                 Ok("".to_string())
             }
             Stmt::AssignRef(dst, src) => {
-                let dst_val = self.compile_expr(dst, env)?;
-                let src_val = self.compile_expr(src, env)?;
+                let dst_val = self.compile_expr(dst, _env)?;
+                let src_val = self.compile_expr(src, _env)?;
                 let ptr_reg = self.fresh_reg();
                 self.emit(&format!("  {ptr_reg} = inttoptr i64 {dst_val} to i64*"));
                 self.emit(&format!("  store i64 {src_val}, i64* {ptr_reg}"));
@@ -417,13 +405,13 @@ impl CompileTarget for LLVMCompiler {
 
                 self.emit(&format!("  br label %{cond_label}"));
                 self.emit(&format!("{cond_label}:"));
-                let cond_val = self.compile_expr(cond, env)?;
+                let cond_val = self.compile_expr(cond, _env)?;
                 let cond_cmp = self.fresh_reg();
                 self.emit(&format!("  {cond_cmp} = icmp ne i64 {cond_val}, 0"));
                 self.emit(&format!("  br i1 {cond_cmp}, label %{body_label}, label %{end_label}"));
 
                 self.emit(&format!("{body_label}:"));
-                self.compile_stmt(body, env)?;
+                self.compile_stmt(body, _env)?;
                 self.emit(&format!("  br label %{cond_label}"));
 
                 self.emit(&format!("{end_label}:"));
@@ -436,17 +424,17 @@ impl CompileTarget for LLVMCompiler {
                 let else_label = self.fresh_label("if.else");
                 let end_label  = self.fresh_label("if.end");
 
-                let cond_val = self.compile_expr(cond, env)?;
+                let cond_val = self.compile_expr(cond, _env)?;
                 let cond_cmp = self.fresh_reg();
                 self.emit(&format!("  {cond_cmp} = icmp ne i64 {cond_val}, 0"));
                 self.emit(&format!("  br i1 {cond_cmp}, label %{then_label}, label %{else_label}"));
 
                 self.emit(&format!("{then_label}:"));
-                self.compile_stmt(then, env)?;
+                self.compile_stmt(then, _env)?;
                 self.emit(&format!("  br label %{end_label}"));
 
                 self.emit(&format!("{else_label}:"));
-                self.compile_stmt(else_, env)?;
+                self.compile_stmt(else_, _env)?;
                 self.emit(&format!("  br label %{end_label}"));
 
                 self.emit(&format!("{end_label}:"));
@@ -455,7 +443,7 @@ impl CompileTarget for LLVMCompiler {
             Stmt::Block(stmts) => {
                 self.push_scope();
                 for s in stmts {
-                    self.compile_stmt(s, env)?;
+                    self.compile_stmt(s, _env)?;
                 }
                 self.pop_scope();
                 Ok("".to_string())

@@ -1,6 +1,9 @@
-extern fun put(x);
-extern fun putnum(x);
-extern fun fprint(x);
+extern fun read();
+extern fun write(x);
+
+extern fun putc(x);
+extern fun puti(x);
+extern fun putf(x);
 extern fun fadd(x, y);
 extern fun fsub(x, y);
 extern fun fmul(x, y);
@@ -10,9 +13,6 @@ extern fun frem(x, y);
 extern fun flt(x, y);
 extern fun lt(x, y);
 extern fun add(x, y);
-
-extern fun read();
-extern fun write(ch);
 
 extern fun malloc(size);
 extern fun free(ptr);
@@ -41,49 +41,49 @@ fun sin(x) {
 }
 
 fun newline() {
-    put('\n');
+    putc('\n');
 }
 
-put('H');
-put('e');
-put('l');
-put('l');
-put('o');
-put(',');
-put(' ');
-put('W');
-put('o');
-put('r');
-put('l');
-put('d');
-put('!');
+putc('H');
+putc('e');
+putc('l');
+putc('l');
+putc('o');
+putc(',');
+putc(' ');
+putc('W');
+putc('o');
+putc('r');
+putc('l');
+putc('d');
+putc('!');
 newline();
 
-put('>');
-put(' ');
+putc('>');
+putc(' ');
 let x = read();
 newline();
-put('Y');
-put('o');
-put('u');
-put(' ');
-put('e');
-put('n');
-put('t');
-put('e');
-put('r');
-put('e');
-put('d');
-put(' ');
-put('\'');
-put(x);
-put('\'');
-put('.');
+putc('Y');
+putc('o');
+putc('u');
+putc(' ');
+putc('e');
+putc('n');
+putc('t');
+putc('e');
+putc('r');
+putc('e');
+putc('d');
+putc(' ');
+putc('\'');
+putc(x);
+putc('\'');
+putc('.');
 newline();
 
-fprint(sin(0.0));
+putf(sin(0.0));
 newline();
-fprint(sin(fdiv(3.14159265358979323846, 4.0)));
+putf(sin(fdiv(3.14159265358979323846, 4.0)));
 newline();
-fprint(sin(3.14159265358979323846));
+putf(sin(3.14159265358979323846));
 newline();

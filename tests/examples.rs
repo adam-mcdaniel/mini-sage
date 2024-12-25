@@ -3,9 +3,9 @@ use std::{
     io::{Read, Write},
     path::Path,
 };
-use tracing::{warn, info};
-use anyhow::Result;
-use mage::lir::*;
+use tracing::warn;
+use anyhow::{Result, Context};
+use mage::*;
 use lazy_static::lazy_static;
 
 const FFI_TO_LINK: &str = "examples/libexample.c";
@@ -13,6 +13,21 @@ const FFI_TO_LINK: &str = "examples/libexample.c";
 
 lazy_static! {
     static ref COMPILER_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+}
+
+fn run_with_big_stack<T: Send + 'static>(
+    f: impl FnOnce(()) -> Result<T> + Send + 'static,
+) -> Result<T> {
+    let stack_size = 128 * 1024 * 1024; // 4 MB stack size
+    let builder = std::thread::Builder::new().stack_size(stack_size);
+
+    let handle = builder
+        .spawn(move || {
+            f(())
+        })
+        .expect("Failed to spawn thread");
+
+    handle.join().expect("Failed to join thread")
 }
 
 // -------------------------------------------------------------------------
@@ -188,7 +203,7 @@ fn test_expected_pass_llvm_backend() -> Result<()> {
         let program = parse(&code)?;
 
         // 3) Compile to LLVM IR
-        let llvm_ir = LLVMCompiler::new().compile(program)?;  
+        let llvm_ir = LLVMCompiler::default().compile(program)?;  
         // NOTE: you might have your own `LLVMBackend::new()`, etc. 
         // The key is that we now produce IR as a string.
 
@@ -289,5 +304,63 @@ fn test_expected_fail_c_backend() -> Result<()> {
             // If compilation fails, that’s a success for “fail” tests:
             Err(anyhow::anyhow!("Compilation failed as expected."))
         }
+    })
+}
+
+
+#[test]
+fn test_expected_pass_interpreter_backend() -> Result<()> {
+    run_with_big_stack(|_| {
+        expected_pass_compiled(|path| {
+            eprintln!("Running {}", path.display());
+            // 1) Read .mg source
+            let mut code = String::new();
+            File::open(&path)?.read_to_string(&mut code)?;
+
+            // 2) Parse
+            let program = parse(&code)?;
+
+            // 6) Run the compiled program
+            let mut input_text = String::new();
+            let input_file_path = path.with_extension("in.txt");
+            if input_file_path.exists() {
+                File::open(input_file_path)?.read_to_string(&mut input_text)?;
+            } else {
+                warn!("No input file found for {}", path.display());
+            }
+
+            // 3) Compile to LIR
+            let i = Interpreter::new(TestInterface::new().with_string_input(&input_text));
+            let interface = i.run(&program).context("Failed to run program")?;
+
+            Ok(interface.output_bytes())
+        })
+    })
+}
+
+#[test]
+fn test_expected_fail_interpreter_backend() -> Result<()> {
+    expected_fail_compiled(|path| {
+        // 1) Read .mg source
+        let mut code = String::new();
+        File::open(&path)?.read_to_string(&mut code)?;
+
+        // 2) Parse
+        let program = parse(&code)?;
+
+        // 6) Run the compiled program
+        let mut input_text = String::new();
+        let input_file_path = path.with_extension("in.txt");
+        if input_file_path.exists() {
+            File::open(input_file_path)?.read_to_string(&mut input_text)?;
+        } else {
+            warn!("No input file found for {}", path.display());
+        }
+
+        // 3) Compile to LIR
+        let i = Interpreter::new(TestInterface::new().with_string_input(&input_text));
+        let interface = i.run(&program).context("Failed to run program")?;
+
+        Ok(interface.output_bytes())
     })
 }

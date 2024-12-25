@@ -11,11 +11,10 @@ extern fun div(x, y);
 extern fun lt(x, y);
 extern fun eq(x, y);
 
-extern fun put(ch);
-extern fun putnum(n);
-extern fun fprint(ch);
+extern fun putc(ch);
+extern fun puti(n);
 fun newline() {
-    put('\n');
+    putc('\n');
 }
 
 extern fun to_float(n);
@@ -65,20 +64,20 @@ fun print_colored_char(ch, hue, saturation, value) {
     let g = floor(saturation);
     let b = floor(value);
 
-    put(27);
-    put('[');
-    put('3');
-    put('8');
-    put(';');
-    put('2');
-    put(';');
-    putnum(to_int(r));
-    put(';');
-    putnum(to_int(g));
-    put(';');
-    putnum(to_int(b));
-    put('m');
-    put(ch);
+    putc(27);
+    putc('[');
+    putc('3');
+    putc('8');
+    putc(';');
+    putc('2');
+    putc(';');
+    puti(to_int(r));
+    putc(';');
+    puti(to_int(g));
+    putc(';');
+    puti(to_int(b));
+    putc('m');
+    putc(ch);
 }
 
 fun print_mandelbrot_iter(iter) {
@@ -171,33 +170,3 @@ fun zoom_render(x_center, y_center, zoom) {
 // Example render call with zoomed-in region
 render(-2.0, 1.0, -1.0, 1.0); // Full view
 newline();
-
-// Seahorse Valley
-render(-0.75, -0.74, 0.1, 0.11);
-newline();
-
-// Elephant Valley
-render(0.28, 0.29, 0.0, 0.02);
-newline();
-
-// Triple Spiral Valley
-zoom_render(-0.1011, 0.8383, 100.0);
-newline();
-
-// The Needle
-zoom_render(0.001643721971153, -0.822467633298876, 1000.0);
-
-// Satellites
-zoom_render(-1.75, 0.0, 100.0);
-
-// Tail of Seahorse
-zoom_render(-0.745428, 0.113009, 300.0);
-
-// Double Spiral Valley
-zoom_render(-0.122561, 0.744861, 500.0);
-
-// Box Canyon
-zoom_render(-0.743643135, 0.131825963, 10000.0);
-
-// Head Spiral
-zoom_render(-0.7463, 0.1102, 200.0);

@@ -17,7 +17,7 @@ fn bench_mg_with_c(path: &Path, compile: bool, run: bool) -> Result<()> {
         let program = parse(&code)?;
     
         // 3) Compile to LLVM IR
-        let c_cide = CCompiler::new().compile(program)?;  
+        let c_cide = CCompiler::default().compile(program)?;  
         // NOTE: you might have your own `LLVMBackend::new()`, etc. 
         // The key is that we now produce IR as a string.
     

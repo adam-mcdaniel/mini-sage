@@ -1,12 +1,7 @@
 use std::{
-    collections::{HashMap},
+    collections::HashMap,
     fmt::{Display, Debug, Formatter, Result as FmtResult},
-    hash::{Hash},
     sync::{Arc, RwLock},
-};
-
-use nom::{
-    error::{convert_error, VerboseError}, Err
 };
 
 use lazy_static::lazy_static;
@@ -16,6 +11,7 @@ lazy_static! {
 }
 
 /// A symbol that uses string interning
+#[allow(clippy::derived_hash_with_manual_eq, clippy::derive_ord_xor_partial_ord)]
 #[derive(Clone, Hash, Eq, Ord)]
 pub struct Symbol(Arc<String>);
 
@@ -64,6 +60,7 @@ impl PartialEq for Symbol {
     }
 }
 
+#[allow(clippy::non_canonical_partial_ord_impl)]
 impl PartialOrd for Symbol {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         if Arc::ptr_eq(&self.0, &other.0) {

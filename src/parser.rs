@@ -1,12 +1,10 @@
-use std::any;
-
 use nom::{
     branch::alt,
     bytes::complete::{is_not, tag, take_while, take_while1, take_while_m_n},
     character::complete::{char, digit1, hex_digit1, multispace1, oct_digit1},
     combinator::{all_consuming, cut, map, map_opt, opt, recognize, verify},
-    error::{context, ContextError, ParseError},
-    multi::{fold_many0, many0, many0_count, many1},
+    error::{ContextError, ParseError},
+    multi::{fold_many0, many0, many0_count},
     sequence::{delimited, pair, preceded, terminated},
     IResult, Parser,
 };
@@ -251,7 +249,7 @@ where
     .parse(input)
 }
 
-fn parse_fragment_char<'a, E>(input: &'a str) -> IResult<&'a str, StringFragment, E>
+fn parse_fragment_char<'a, E>(input: &'a str) -> IResult<&'a str, StringFragment<'a>, E>
 where
     E: ParseError<&'a str>,
 {
