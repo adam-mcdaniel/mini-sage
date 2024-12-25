@@ -10,3 +10,4 @@
 .vscode/
 *.lock
 *.out
+.DS_Store
