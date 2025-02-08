@@ -147,7 +147,8 @@ impl CompileTarget for LLVMCompiler {
                         Expr::Char(c) => (c as i64).to_string(),
                         Expr::Float(f) => (f64::to_bits(f) as i64).to_string(),
                         Expr::Bool(b) => self.bool_to_int(b).to_string(),
-                        _ => "0".to_string() // fallback for non-constant initializers
+                        // _ => "0".to_string() // fallback for non-constant initializers
+                        other => return Err(anyhow::anyhow!("Unsupported global initializer type: {other:?}").context("Global variables must be initialized with a constant expression, e.g. an integer, character, float, or boolean")),
                     };
                     self.global_declarations.push(format!("@{} = global i64 {}", global_name, initial_val));
                 }
@@ -358,7 +359,7 @@ impl CompileTarget for LLVMCompiler {
                         Expr::Char(c) => (c as i64).to_string(),
                         Expr::Float(f) => (f64::to_bits(f) as i64).to_string(),
                         Expr::Bool(b) => self.bool_to_int(b).to_string(),
-                        _ => "0".to_string() // fallback for non-constant initializers
+                        other => return Err(anyhow::anyhow!("Unsupported global initializer type: {other:?}").context("Global variables must be initialized with a constant expression, e.g. an integer, character, float, or boolean")),
                     };
 
                     self.known_globals.insert(global_name.clone(), global_name.clone());
