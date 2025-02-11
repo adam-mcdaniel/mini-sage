@@ -248,10 +248,12 @@ impl<T: Interface> Interpreter<T> {
             }
             Stmt::AssignVar(name, value) => {
                 let result = self.eval_expr(value)?;
-                if self.static_vars.read().unwrap().contains_key(name) {
+                if self.env.contains_key(name) {
+                    self.env.insert(name.clone(), result);
+                } else if self.static_vars.read().unwrap().contains_key(name) {
                     self.write_static_var(name.clone(), result);
                 } else {
-                    self.env.insert(name.clone(), result);
+                    anyhow::bail!("Unknown variable: {:?}", name);
                 }
             }
 
