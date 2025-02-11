@@ -157,7 +157,7 @@ impl<T: Interface> Interpreter<T> {
                         if self.interface.has_extern(name.as_ref()) {
                             return self.interface.external_call(name.as_ref(), args);
                         } else if let Some(body) = body {
-                            let mut new_env = self.env.clone();
+                            let mut new_env = BTreeMap::new();
                             for (name, value) in arg_names.iter().zip(args.iter()) {
                                 new_env.insert(name.clone(), *value);
                             }
@@ -179,7 +179,7 @@ impl<T: Interface> Interpreter<T> {
                 // Get the proc from the environment
                 let (arg_names, body) = self.procs.values().nth(proc_number as usize).unwrap().clone();
 
-                let mut new_env = self.env.clone();
+                let mut new_env = BTreeMap::new();
                 for (name, value) in arg_names.iter().zip(args.iter()) {
                     new_env.insert(name.clone(), self.eval_expr(value)?);
                 }
@@ -248,7 +248,11 @@ impl<T: Interface> Interpreter<T> {
             }
             Stmt::AssignVar(name, value) => {
                 let result = self.eval_expr(value)?;
-                self.env.insert(name.clone(), result);
+                if self.static_vars.read().unwrap().contains_key(name) {
+                    self.write_static_var(name.clone(), result);
+                } else {
+                    self.env.insert(name.clone(), result);
+                }
             }
 
             Stmt::AssignRef(reference, value) => {
