@@ -187,7 +187,7 @@ fn main() -> Result<()> {
     write!(file, "{}", output)?;
 
     // Compile the file
-    let mut cmd = std::process::Command::new("gcc");
+    let mut cmd = std::process::Command::new("clang");
     if args.libraries.iter().any(|lib| lib.ends_with(".c")) {
         cmd
             .arg(&path)
