@@ -5,6 +5,10 @@ use std::fmt::Write;
 #[derive(Default)]
 pub struct CCompiler;
 
+fn to_c_func_type(arg_count: usize) -> String {
+    format!("int64_t (*)({})", (0..arg_count).map(|_| "int64_t").collect::<Vec<_>>().join(", "))
+}
+
 impl CompileTarget for CCompiler {
     fn has_extern(&self, _name: &str) -> bool {
         true
@@ -47,8 +51,10 @@ impl CompileTarget for CCompiler {
             Expr::Ref(name) => Ok(format!("((int64_t)&{})", wrap_symbol_name(name))),
             Expr::App(func, args) => {
                 let func = self.compile_expr(func, _env)?;
-                let args = args.iter().map(|arg| self.compile_expr(arg, _env)).collect::<Result<Vec<_>>>()?;
-                Ok(format!("{}({})", func, args.join(", ")))
+                let args = args.iter().map(|arg| Ok(format!("(int64_t)({})", self.compile_expr(arg, _env)?))).collect::<Result<Vec<_>>>()?;
+                Ok(format!("(({}){})({})", to_c_func_type(args.len()), func, args.join(", ")))
+                // let args = args.iter().map(|arg| self.compile_expr(arg, _env)).collect::<Result<Vec<_>>>()?;
+                // Ok(format!("{}({})", func, args.join(", ")))
             },
             Expr::Array(values) => {
                 let values = values.iter().map(|value| self.compile_expr(value, _env)).collect::<Result<Vec<_>>>()?;
